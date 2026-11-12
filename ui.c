@@ -28,6 +28,10 @@
 #define MID 240
 #define TOP 74                        /* the page starts under the tabs */
 #define FO_POPUP 330
+#define FO_ENG 340                    /* clicks: an engine card */
+#define FO_KEY 360                    /* … a note of the circle = the key */
+#define FO_RESP 380                   /* … the RESPOND card */
+#define FO_WPAD 400                   /* … a WANDER cell = that program */
 
 static const char *const PAGE_N[P_COUNT] = { "LISTEN", "ENGINE", "TONE", "SPACE", "MOTION", "WANDER", "PRESETS", "GLOBAL" };
 static const uint32_t KEY_C[6] = { MINT, ACC, AMBER, BLUE, VIOLET, CORAL };
@@ -168,7 +172,14 @@ static void popup(void) {
   vg_round(MID - 50, y + 192, 100, 26, 13, ACC); vf_button(FO_POPUP, MID - 50, y + 192, 100, 26);
   vg_text("OK", MID, y + 197, VG_BOLD, INK, VG_CENTER);
 }
-int ui_popup_press(int id) { if (id != FO_POPUP) return 0; V.popup_off = 1; vibe_request(VIBE_REQ_AUDIO_INPUT); return 1; }
+int ui_popup_press(int id) {                            /* the display's own clicks (SDK 18) */
+  if (id == FO_POPUP) { V.popup_off = 1; vibe_request(VIBE_REQ_AUDIO_INPUT); return 1; }
+  if (id >= FO_ENG && id < FO_ENG + EN_COUNT) { V.s.engine = (float)(id - FO_ENG); return 1; }
+  if (id >= FO_KEY && id < FO_KEY + 12) { V.s.key = (float)(id - FO_KEY); return 1; }
+  if (id == FO_RESP) { V.s.respond = (float)(((int)(V.s.respond + 0.5f) + 1) % RS_COUNT); return 1; }
+  if (id >= FO_WPAD && id < FO_WPAD + N_PRESETS) { ui_go_program(id - FO_WPAD); return 1; }
+  return 0;
+}
 
 /* ---------------------------------------------------------------- pages ----------------------------------------- */
 static void bar_row(int y, const char *label, float v, uint32_t col) {
@@ -220,6 +231,7 @@ static void page_engine(void) {
     int x = 8 + i * 117, y = TOP, w = 112, h = 92, on = e == i;
     if (on) { vg_round(x, y, w, h, 10, ACC); vg_round(x + 2, y + 2, w - 4, h - 4, 9, SURF2); }
     else vg_round(x, y, w, h, 10, SURF);
+    vf_button(FO_ENG + i, x, y, w, h);
     engine_pic(i, x + 4, y + 8, w - 8, 44, on ? ACC : MUTED);
     vg_text(ENGINE_N[i], x + w / 2, y + 62, VG_MED, on ? FG : LABEL, VG_CENTER);
   }
@@ -238,6 +250,7 @@ static void page_tone(void) {
     float ph = i / 12.0f, x = cx + vd_sin(ph) * R, y = cy - vd_sin(ph + 0.25f) * R;
     int in = scale_has(sc, pc - key), root = pc == V.chord_pc;
     if (heard == pc) vg_circle(x, y, 13, MINT);
+    vf_button(FO_KEY + pc, (int)x - 12, (int)y - 12, 24, 24);
     vg_circle(x, y, 10.5f, root ? ACC : chord[pc] ? AMBER : in ? SURF2 : SURF);
     vg_text(NOTE_N[pc], (int)x, (int)y - 7, VG_BOLD, root || chord[pc] ? INK : in ? FG : MUTED, VG_CENTER);
   }
@@ -279,7 +292,7 @@ static void page_motion(void) {
   vg_text("QUIET", gx, y0 + h - 22, VG_BOLD, MUTED, VG_LEFT); vg_text("BUSY", gx + gw, y0 + h - 22, VG_BOLD, MUTED, VG_RIGHT);
   static const char *const T[RS_COUNT] = { "busier = fuller", "busier = softer", "always there" };
   static const char *const N[RS_COUNT] = { "SWELL", "CALM", "STEADY" };
-  vg_round(246, y0, CW - 246, h, 10, SURF);
+  vg_round(246, y0, CW - 246, h, 10, SURF); vf_button(FO_RESP, 246, y0, CW - 246, h);
   vg_text(N[rs], 262, y0 + 12, VG_BIG, VIOLET, VG_LEFT);
   vg_text(T[rs], 262, y0 + 42, VG_MED, FG, VG_LEFT);
   char b[40] = "RISE ", t[8]; cat(b, vg_ftoa(V.s.rise, 1, t)); cat(b, " s  \xC2\xB7  FALL "); cat(b, vg_itoa((int)(V.s.fall + 0.5f), t)); cat(b, " s");
@@ -292,7 +305,7 @@ static void page_wander(void) {
   int a = (int)(V.from + 0.5f), b = (int)(V.to + 0.5f); if (a > b) { int t = a; a = b; b = t; }
   for (int i = 0; i < N_PRESETS; i++) {
     int x = 8 + (i % 8) * 58, y = TOP + (i / 8) * 34, in = i >= a && i <= b, on = V.preset == i;
-    vg_round(x, y, 54, 30, 8, on ? prog_colour(i) : in ? SURF2 : SURF);
+    vg_round(x, y, 54, 30, 8, on ? prog_colour(i) : in ? SURF2 : SURF); vf_button(FO_WPAD + i, x, y, 54, 30);
     char t[4]; vg_text(vg_itoa(i + 1, t), x + 27, y + 7, VG_BOLD, on ? INK : in ? FG : MUTED, VG_CENTER);
   }
   char s[64] = "";

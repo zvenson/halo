@@ -231,6 +231,7 @@ static void prog_save(int i) {
   char b[40] = "SAVED TO PAD "; char t[8]; cat(b, vg_itoa(i + 1, t)); toast(b);
 }
 static void prg_go(int i) { prog_load(i); char b[40] = ""; char t[8]; cat(b, vg_itoa(i + 1, t)); cat(b, " "); cat(b, prog_name(i)); toast(b); }
+void ui_go_program(int i) { prg_go(i); }
 static void prg_step(int d) { prg_go(V.preset < 0 ? (d > 0 ? 0 : N_PRESETS - 1) : (V.preset + d + N_PRESETS) % N_PRESETS); }
 
 static halo_sound snap; static int snap_preset, pad_held = -1; static double pad_t;

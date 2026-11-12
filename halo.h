@@ -98,7 +98,8 @@ int halo_hush(void);
 /* ui.c */
 void ui_draw(void);
 void ui_lights(void);
-int  ui_popup_press(int id);                            /* the microphone popup's OK */
+int  ui_popup_press(int id);
+void ui_go_program(int i);                            /* main.c: a program by a click */                            /* the microphone popup's OK */
 
 /* small helpers */
 static inline float db2lin(float db) { return vd_exp2(db * 0.16609640f); }
