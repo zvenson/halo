@@ -27,7 +27,9 @@ static const uint32_t PRESET_C[N_PRESETS] = {
   0xFFD9A0, 0x9FE3D0, 0x6EE7A8, 0xFFB347, 0xE6EAF2, 0xFF8A3D, 0x7FB8FF, 0x6B78C9 };
 #define MAGIC 0x48414C31u                                             /* "HAL1" */
 typedef struct { uint32_t magic, size, user; halo_sound s[N_PRESETS]; int8_t src[N_PRESETS]; } prg_file;
-typedef struct { uint32_t magic, size; float src, in_mode, gain_db, sense, adapt, guard, out_db, pad_mode, meters, morph, keys_level, wander, every, from, to; int32_t last; } glb_file;
+typedef struct { uint32_t magic, size; float src, in_mode, gain_db, sense, adapt, guard, out_db, pad_mode, meters, morph, keys_level, wander, every, from, to; int32_t last;
+                 float saver, saver_after, saver_react, saver_fps; } glb_file;   /* (0.3: + the saver; 0.2 files still load) */
+#define GLB_V02 ((uint32_t)(sizeof(glb_file) - 4 * sizeof(float)))
 static prg_file P;
 
 static void neutral(halo_sound *s) {
@@ -78,7 +80,8 @@ uint32_t prog_colour(int i) { int s = P.src[i]; return s >= 0 && s < N_PRESETS ?
 static void prog_store(int i, const halo_sound *s, int src) { P.s[i] = *s; P.src[i] = (int8_t)(src >= 0 ? P.src[src] : -1); P.user |= 1u << i; V.prog_user = (int)P.user; write_programs(); }
 static void prog_reset(int i) { factory(i, &P.s[i]); P.src[i] = (int8_t)i; P.user &= ~(1u << i); V.prog_user = (int)P.user; write_programs(); }
 static void global_save(void) {
-  glb_file g = { MAGIC, sizeof g, V.src, V.in_mode, V.gain_db, V.sense, V.adapt, V.guard, V.out_db, V.pad_mode, V.meters, V.morph, V.keys_level, V.wander, V.every, V.from, V.to, V.preset };
+  glb_file g = { MAGIC, sizeof g, V.src, V.in_mode, V.gain_db, V.sense, V.adapt, V.guard, V.out_db, V.pad_mode, V.meters, V.morph, V.keys_level, V.wander, V.every, V.from, V.to, V.preset,
+                 V.saver, V.saver_after, V.saver_react, V.saver_fps };
   vibe_store_write("global", &g, sizeof g);
 }
 static void prog_init(void) {
@@ -89,10 +92,12 @@ static void prog_init(void) {
   V.prog_user = (int)P.user;
   V.s = P.s[0]; V.preset = 0;
   glb_file g = { 0 };
-  if (vibe_store_read("global", &g, sizeof g) == (int)sizeof g && g.magic == MAGIC && g.size == sizeof g) {
+  int got = vibe_store_read("global", &g, sizeof g);
+  if (g.magic == MAGIC && ((got == (int)sizeof g && g.size == sizeof g) || (got == (int)GLB_V02 && g.size == GLB_V02))) {
     V.src = g.src; V.in_mode = g.in_mode; V.gain_db = g.gain_db; V.sense = g.sense; V.adapt = g.adapt; V.guard = g.guard; V.out_db = g.out_db;
     V.pad_mode = g.pad_mode; V.meters = g.meters; V.morph = g.morph; V.keys_level = g.keys_level;
     V.wander = g.wander; V.every = g.every; V.from = g.from; V.to = g.to;
+    if (g.size == sizeof g) { V.saver = g.saver; V.saver_after = g.saver_after; V.saver_react = g.saver_react; V.saver_fps = g.saver_fps; }
     if (g.last >= 0 && g.last < N_PRESETS) { V.s = P.s[g.last]; V.preset = g.last; }
   }
 }
@@ -102,6 +107,7 @@ static const char *const MODE_N[] = { "LINE", "MIC", "HI-Z" };
 static const char *const SRC_N[] = { "IN 1", "IN 2", "IN 1+2" };
 static const char *const ONOFF_N[] = { "OFF", "ON" };
 static const char *const PADM_N[] = { "HOLD", "TOGGLE" };
+static const char *const FPS_N[] = { "FULL", "24", "12" };
 static const char *const RESP_N[] = { "SWELL", "CALM", "STEADY" };
 static const char *const VOIC_N[] = { "OPEN", "FIFTHS", "CLOSE", "CLUSTER" };
 static const char *const NOTE_N[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
@@ -111,10 +117,11 @@ typedef struct { const char *label; float *v; float min, max, step; int fmt; con
 static float prg_sel;
 
 static const char *const SUBN_LISTEN[] = { "INPUT", "ROOM" }, *const SUBN_ENGINE[] = { "ENGINE", "MORE" },
-                         *const SUBN_TONE[] = { "KEY", "CHORD" }, *const SUBN_SPACE[] = { "REVERB", "SIZE" };
-int page_subs(int page) { return page == P_LISTEN || page == P_ENGINE || page == P_TONE || page == P_SPACE ? 2 : 1; }
+                         *const SUBN_TONE[] = { "KEY", "CHORD" }, *const SUBN_SPACE[] = { "REVERB", "SIZE" },
+                         *const SUBN_GLOBAL[] = { "GLOBAL", "SAVER" };
+int page_subs(int page) { return page == P_LISTEN || page == P_ENGINE || page == P_TONE || page == P_SPACE || page == P_GLOBAL ? 2 : 1; }
 const char *const *page_sub_names(int page) {
-  switch (page) { case P_LISTEN: return SUBN_LISTEN; case P_ENGINE: return SUBN_ENGINE; case P_TONE: return SUBN_TONE; case P_SPACE: return SUBN_SPACE; }
+  switch (page) { case P_LISTEN: return SUBN_LISTEN; case P_ENGINE: return SUBN_ENGINE; case P_TONE: return SUBN_TONE; case P_SPACE: return SUBN_SPACE; case P_GLOBAL: return SUBN_GLOBAL; }
   return 0;
 }
 static pdef eng_def(int k) {                              /* the open engine's k-th value */
@@ -189,6 +196,13 @@ static int page_defs(int page, int sub, pdef d[4]) {
       d[0] = (pdef){ "PROGRAM", &prg_sel, 0, N_PRESETS - 1, 1, F_PRG, 0 };
       return 1;
     case P_GLOBAL:
+      if (sub) {
+        d[0] = (pdef){ "SAVER", &V.saver, 0, 1, 1, F_NAME, ONOFF_N };
+        d[1] = (pdef){ "AFTER", &V.saver_after, 1, 30, 1, F_MIN, 0 };
+        d[2] = (pdef){ "REACT", &V.saver_react, 0, 1, 0.02f, F_AMT, 0 };
+        d[3] = (pdef){ "FPS", &V.saver_fps, 0, 2, 1, F_NAME, FPS_N };
+        return 1;
+      }
       d[0] = (pdef){ "OUTPUT", &V.out_db, -40, 6, 1, F_DB, 0 };
       d[1] = (pdef){ "PADS", &V.pad_mode, 0, 1, 1, F_NAME, PADM_N };
       d[2] = (pdef){ "MORPH", &V.morph, 0.1f, 30, 0.1f, F_SEC, 0 };
@@ -313,6 +327,7 @@ void vibe_on_init(float sample_rate) {
   V.sr = sample_rate;
   V.src = SRC_IN1; V.in_mode = VIBE_IN_MIC; V.gain_db = 12; V.sense = 0.5f; V.adapt = 60; V.guard = 1; V.out_db = 0; V.pad_mode = 0;
   V.meters = 1; V.morph = 8; V.keys_level = 0.8f; V.wander = 0; V.every = 15; V.from = 0; V.to = 15;
+  V.saver = 1; V.saver_after = 1; V.saver_react = 0.8f; V.saver_fps = 1;
   V.floor_db = -60;
   prog_init();
   vibe_params(VP, NVP); vibe_param_groups(VG); daw_sync();
@@ -324,7 +339,7 @@ void vibe_on_init(float sample_rate) {
   for (int i = 0; i < 6; i++) { vibe_label(VB_K1 + i, K[i]); vibe_label(VB_F1 + i, F[i]); }
   V.page = P_ENGINE; prg_sel = (float)V.preset;
   vibe_request(VIBE_REQ_AUDIO_INPUT);
-  vibe_log("HALO 0.2 started");
+  vibe_log("HALO 0.3 started");
 }
 
 static double frz_t; static int frz_keep;
@@ -368,7 +383,26 @@ static void note(int n, int on) {
   if (on) { V.key_note = n; V.key_gate = 1; }
   else if (n == V.key_note) V.key_gate = 0;
 }
+/* a touch wakes the display: the touch that ends the saver does nothing else (nor does its release) */
+static int is_touch(const vibe_event *e) {
+  switch (e->type) {
+    case VIBE_EV_BUTTON: case VIBE_EV_PAD: case VIBE_EV_KEY: case VIBE_EV_ENCODER: case VIBE_EV_TOUCH:
+    case VIBE_EV_AREA: case VIBE_EV_FADER: case VIBE_EV_STAGE: return 1;
+  }
+  return 0;
+}
+static int wake_type = -1, wake_id = -1;
+static int wake(const vibe_event *e) {
+  if (!is_touch(e)) return 0;
+  V.touch_ms = v_ms();
+  if (wake_type == e->type && wake_id == e->id && !e->down && e->type != VIBE_EV_ENCODER) { wake_type = wake_id = -1; return 1; }
+  if (!V.saver_on) return 0;
+  V.saver_on = 0;
+  if (e->type != VIBE_EV_ENCODER && e->down) { wake_type = e->type; wake_id = e->id; }
+  return 1;
+}
 void vibe_on_event(const vibe_event *e) {
+  if (wake(e)) return;
   { int id = -1, r = vf_event(e, &id);
     if (r == VF_PRESS && ui_popup_press(id)) return;
     if (r == VF_PRESS && id >= FO_PRESET && id < FO_PRESET + N_PRESETS) prg_go(id - FO_PRESET);
@@ -416,6 +450,10 @@ void vibe_on_audio(const float *in, float *l, float *r, int n) {
     float x = a ? a[i] : 0, y = b ? b[i] : 0;
     raw[i] = src == SRC_IN2 ? y : src == SRC_BOTH ? 0.5f * (x + y) : x;
   }
+  /* the scope for the screensaver: every 4th raw sample into the ring (one writer; the reader never blocks us) */
+  { static int ph; int h = SCOPE.head;
+    for (int i = ph; i < n; i += 4) SCOPE.w[h++ & (SCOPE_N - 1)] = raw[i];
+    ph = (ph - n) & 3; VIBE_RELEASE(); SCOPE.head = h; }
   /* the sound glides to what the control flow set – after a program change over MORPH seconds */
   if (seq != V.prog_seq) { VIBE_ACQUIRE(); if (seq < 0) S = V.s; else morph_left = V.morph; seq = V.prog_seq; }
   float k = 1 - vd_coef((morph_left > 0.05f ? V.morph : 0.05f) / 3, V.sr / n);
@@ -444,5 +482,8 @@ static void wander_tick(void) {
   prg_go(p);
 }
 int halo_hush(void) { return hush; }
-void vibe_on_draw(uint16_t *fb) { (void)fb; daw_sync(); wander_tick();
+void vibe_on_draw(uint16_t *fb) { daw_sync(); wander_tick();
+  if (V.saver > 0.5f && !V.saver_on && !help && v_ms() - V.touch_ms > V.saver_after * 60000.0) { V.saver_on = 1; saver_reset(); }
+  if (V.saver < 0.5f) V.saver_on = 0;
+  if (V.saver_on) { saver_draw(fb); ui_lights(); return; }
   ui_draw(); if (help) vg_controls("HALO", HELP, sizeof HELP / sizeof HELP[0] / 2); ui_lights(); }

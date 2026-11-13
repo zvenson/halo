@@ -47,6 +47,21 @@ pads that morph into each other; **WANDER** changes them on its own every few mi
 
 No microphone at hand? The keys sing a test voice into the input.
 
+## The screensaver
+
+Untouched for a minute (GLOBAL ▸ F6 again ▸ SAVER: on/off, 1–30 min), the display becomes a slow demoscene show in the
+colours of the night, played by the same microphone. Five scenes take turns, about 45 s each:
+
+- **TUNNEL** – a flight through rooms of nebula that morph into each other (round, square, oval, star, diamond), stars streaming past
+- **LISSAJOUS** – a 3D Lissajous figure on a phosphor screen, its ratios gliding (1:2:3 → 3:2:1 → 3:4:5 …)
+- **MORPH** – a dot-and-wire object turning in space: sphere, cube, torus, octahedron, spring, trefoil knot
+- **STARS** – a starfield you fly through, copper bars rolling behind it
+- **SHEPARD** – the Shepard illusion for the eye: waves that rise for ever, an octave finer on the way up
+
+The mic's own waveform runs in the walls, the curves and the lines; a sound makes the picture glow, a busy room makes it
+livelier, a hummed pitch shifts the colours. REACT sets how much; FPS (FULL / 24 / 12) how many new pictures – fewer means
+less display noise on a microphone's analog path. The first touch only wakes the display.
+
 ## Controls
 
 K1–K6 = LISTEN · ENGINE · TONE · SPACE · MOTION · WANDER – the same key again is the next sub-page. Encoders 1–4 = the

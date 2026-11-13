@@ -329,6 +329,12 @@ static void page_presets(void) {
 
 static void page_global(void) {
   vg_round(8, 44, CW - 8, 150, 10, SURF);
+  if (V.sub) {                                           /* the SAVER sub-page (F6 again) */
+    static const char *const S[] = { "SAVER", "after AFTER minutes untouched: a flight", "", "through rooms that hear the mic",
+                                     "REACT", "how much the sound moves it", "FPS", "fewer pictures = less display noise" };
+    for (int i = 0; i < 4; i++) { vg_text(S[i * 2], 24, 60 + i * 32, VG_BOLD, ACC, VG_LEFT); vg_text(S[i * 2 + 1], 150, 60 + i * 32, VG_MED, FG, VG_LEFT); }
+    return;
+  }
   static const char *const L[] = { "STOP \xC2\xB7 PLAY", "hush (fade out) \xC2\xB7 back", "PEDAL", "freeze \xC2\xB7 expression = level",
                                    "METERS OFF", "a still picture (no display noise)", "GUARD", "ducks the mic when a howl starts" };
   for (int i = 0; i < 4; i++) { vg_text(L[i * 2], 24, 60 + i * 32, VG_BOLD, ACC, VG_LEFT); vg_text(L[i * 2 + 1], 150, 60 + i * 32, VG_MED, FG, VG_LEFT); }

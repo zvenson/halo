@@ -53,6 +53,9 @@ typedef struct {
   float harm[N_HARM]; int chord_deg, chord_pc, onsets, guard_hits; double guard_until, heard_until;
   char toast[40]; double toast_until;
   double wander_t;
+  /* the screensaver (saver.c) – control flow only */
+  float saver, saver_after, saver_react, saver_fps;        /* OFF/ON, minutes, how much the sound moves it, FPS FULL / 24 / 12 */
+  double touch_ms; int saver_on;
 } halo_state;
 extern halo_state V;
 double v_ms(void);
@@ -94,6 +97,13 @@ const char *prog_name(int i);
 uint32_t prog_colour(int i);
 int freeze_on(void);
 int halo_hush(void);
+
+/* saver.c – the scope ring: the audio flow writes the raw input (every 4th sample), the control flow reads */
+#define SCOPE_N 1024
+typedef struct { float w[SCOPE_N]; int head; } halo_scope;
+extern halo_scope SCOPE;
+void saver_draw(uint16_t *fb);
+void saver_reset(void);
 
 /* ui.c */
 void ui_draw(void);
